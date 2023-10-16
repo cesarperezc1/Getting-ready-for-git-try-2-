@@ -1,0 +1,381 @@
+---
+title: "AS1"
+author: "César Andrés Pérez Castro (12649783)"
+date: "2023-02-22"
+output: pdf_document
+---
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(readr)
+library(ggplot2)
+library(purrr)
+library(stringr)
+library(ggridges)
+
+```
+
+
+
+change#1dfsf
+
+
+
+
+
+Aufgabe 1
+
+a) 
+
+```{r}
+set.seed(2604)
+
+ranges<- rnorm(200, mean=600, sd=30)
+
+
+speed<- runif(365, min= 40, max=70)
+
+start_date<- as.POSIXct("2022-01-01 00:00:00")
+end_date<- as.POSIXct("2022-12-31 23:59:59")
+
+date<- seq(start_date, end_date, by = "day")
+
+spdt<- data.frame(speed,date)
+
+#Description of the Refuel function
+#This function calculates the refueling data and returns it as a list.
+#Arguments:
+#x: A numeric vector representing the total distance traveled.
+#y: A data frame with columns "speed" and "date" representing the
+#   speed and date on which each part of the distance was traveled.
+#Returns: A list with the following components:
+#- "taken": A character vector with the dates and times
+#when refueling took place.
+#- "rw": A numeric vector of simulated ranges, basically, the
+#       distances driven between refuelings
+#- "days": A numeric value with total number of days the car was able 
+#         to drive without a break.
+
+
+refuel<- function(x,y){
+  totalstrecke=sum(x)
+  n=1
+  t=1
+  strecke=0
+  time= 0
+  time3=0
+  startyear= y[1,2]
+  timetaken= as.POSIXct(c())
+  while (!(round(strecke)==round(totalstrecke))){
+    time= time + (x[n]/y[t,1])
+    time3= time3 + (x[n]/y[t,1])
+    fulltimesecs= startyear+ as.difftime((time3*3600), units = "secs")
+    ftsformated= format(fulltimesecs,"%Y-%m-%d %H:%M:%S")
+    timetaken= c(as.character(timetaken),as.character(ftsformated))
+    strecke= strecke + x[n]
+    
+    
+    if (time<=24){
+      n=n+1
+    }
+    else{
+      t=t+1
+      time2=time-24
+      time=time2
+      n=n+1
+    }
+  }
+  days= time3/24
+  reflist= list("taken"=timetaken,"rw"=x,"days"=days)
+  return(reflist)
+  
+}
+print(str(refuel(ranges,spdt)))
+
+
+```
+
+Aufgabe 1
+
+b)
+
+```{r}
+
+
+#Seed generator function
+
+
+#This function generates random data using a given seed number, runs a 
+#simulation of refueling given the data, and calculates the number of days 
+#between the first and last refueling over a specified number of simulations. 
+#It prints a list with a summary of statistics on the number of days, 
+#returns(as a function) the data for how much it was spent every single day 
+#of the simulation. 
+
+#Arguments:
+#number: A numeric seed number. The number used to generate the random data 
+#       for each simulation.
+#times: A numeric value. The number of simulations to be run.
+#Returns: A numeric vector of length times: the number of days between the 
+#         first and last refueling for each simulation.
+
+
+
+break_days<- c()
+
+seed_generator<- function(number,times){
+  for (i in c(1:times)){
+    set.seed(number)
+    ranges=rnorm(200, mean=600, sd=30)
+    speed=runif(365, min= 40, max=70)
+    spdt<- data.frame(speed,date)
+    list1=refuel(ranges, spdt)
+    break_days= c(break_days,list1$days)
+    number= number+1
+  }
+  
+  breaks_info=list("Min."=min(break_days),
+                 "Q1"=quantile(break_days,0.25),
+                 "Median"=median(break_days),
+                 "Mean"=mean(break_days),
+                 "Q3"=quantile(break_days, 0.75),
+                 "Max."=max(break_days))
+  print(breaks_info)
+  return(break_days)
+}
+
+bp<-seed_generator(8787992,1000)
+bp<- as.data.frame(bp)
+
+
+bp %>% 
+  ggplot(aes(x="", y=bp))+
+  geom_boxplot(width=0.3,fill= "lightgray",color= "darkgreen", 
+               outlier.shape=21, outlier.color= "darkgreen", 
+               outlier.fill="darkgreen", size=1)+
+  labs(title= "Number of days between first and
+ last refueling over 1.000 simulations", y= "Days", x= NULL)+
+  theme(panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray"),
+        panel.grid.minor = element_line(color = "gray"),
+        plot.title= element_text(hjust=0.5))
+  
+  
+
+
+```
+
+Aufgabe 1
+
+c)
+
+```{r}
+
+#sim_prices function:
+
+#The sim_prices function generates ramdom fuel prices based on 
+#a starting and ending date. The function generates a starting price from a 
+#normal distribution with a mean of 1.8 and a standard deviation of 0.01. 
+
+#Arguments:
+#start_dt: A POSIXct object representing the starting date and time of the 
+#         simulation.
+#end_dt: A POSIXct object representing the ending date and time of the 
+#         simulation.
+
+#Returns: A data frame with the following columns:
+
+#start: A character vector representing the start date and time of 
+#the observation in "YYYY-MM-DD HH:MM:SS" format.
+#date: A Date vector representing the date of the observation.
+#time_num: A numeric vector representing the hour of the observation 
+#           (0-23 hour).
+#prices: A numeric vector representing the fuel prices at the giveno 
+#         bservation time.
+
+start_date<- as.POSIXct("2022-01-01 00:00:00")
+end_date<- as.POSIXct("2022-12-31 23:00:00")
+
+sim_prices<- function(start_dt, end_dt){
+  time_num<- 0
+  start<-as.POSIXct(c())
+  starting_price<- rnorm(1, mean=1.8, sd=0.01)
+  same<- c(0:6,20:23,13)
+  plus<- c(7:12)
+  minus<- c(14:19)
+  prices<- c()
+  start<- c(format(start,"%Y-%m-%d %H:%M:%S"))
+  Date<- as.Date(start)
+  timer<-1
+  timer_vec<-c()
+  time_num_v<-c()
+  
+  while(!(start_dt>end_dt)){
+    
+    if (time_num==24){
+      time_num=0
+    }
+    time_num_v= c(time_num_v,time_num)
+    if (time_num%in%same){
+      prices= c(prices,starting_price)
+      
+    }
+    if (time_num%in%plus){
+      starting_price= starting_price+ rnorm(1, mean=0.01, sd=0.01)
+      prices= c(prices,starting_price)
+    
+    }
+    if (time_num%in%minus){
+      starting_price= starting_price-rnorm(1, mean=0.01, sd=0.01)
+      prices= c(prices,starting_price)
+      
+    }
+    
+    timer_vec= c(timer_vec,timer)
+    timer=timer+1
+    time_num= as.integer(time_num+1)
+    start= c(start,format(start_dt,"%Y-%m-%d %H:%M:%S"))
+    start_dt= start_dt+3600
+    Date=c(Date,as.Date(start_dt))
+    
+    
+    
+      
+  }
+  
+  result<- data.frame("#"=timer_vec,
+                      "start"=start,
+                          "date"=Date,
+                          "time_num"=time_num_v,
+                          "prices"=prices)
+                          
+  return(result)
+    
+  
+  
+}
+head(sim_prices(start_date, end_date),48)
+
+```
+
+
+Aufgabe 1
+
+d)
+
+```{r}
+sp <- sim_prices(start_date, end_date)
+months_spanish <- data.frame("months"=format(sp$date, "%B")) 
+lev_spanish<- c("enero", "febrero", "marzo", "abril", 
+                "mayo", "junio", "julio", "agosto", "septiembre", 
+                "octubre", "noviembre", "diciembre")
+ordered_months<- c(month.name)
+
+sp$months<- factor(months_spanish$months, levels= lev_spanish, labels= 
+                     c(lev_spanish=ordered_months))
+
+
+
+ggplot(sp, aes(x = prices, y = factor(months), fill = factor(stat(quantile)))) +
+  stat_density_ridges(
+    geom = "density_ridges_gradient", calc_ecdf = TRUE,
+    quantiles = 2, quantile_lines = TRUE
+  ) +
+  scale_fill_viridis_d(name = "Quantiles")+
+  theme(panel.background = element_rect(fill = "white"))+
+  labs(y="Month",x="Prices")
+
+
+
+```
+
+
+Aufgabe 1
+
+e)
+
+```{r}
+
+set.seed(1575)
+
+
+#The money() function calculates weekly fuel expenses based on distance ranges 
+#and speeds for each day between start and end dates. It uses the function
+#refuel() to create a refueling data frame, sim_prices() to simulate hourly fuel 
+#prices, and matches refueling dates with their corresponding hourly fuel 
+#prices to get the exact price at that moment.
+
+#Using the correct prices, the function calculates the full fuel expenditure 
+#per day and then aggregates the expenditures on a weekly basis to get the 
+#total fuel expenditure per week.
+
+#The function takes the following arguments:
+
+#strecken: a numeric vector of distance ranges for each day
+#speedsntime: a data frame containing the corresponding speeds and dates for 
+#             each day
+#startD: a POSIXct object representing the start date and time
+#endD: a POSIXct object representing the end date and time
+
+#The function returns a data frame with two columns. The week number and the 
+#total fuel expenditure for that week.
+
+
+
+
+
+ranges2<- rnorm(100, mean=600, sd=30)
+
+speed2<- runif(363, min= 40, max=70)
+start_date2<- as.POSIXct("2023-01-03 00:00:00")
+end_date2<- as.POSIXct("2023-12-31 23:59:59")
+
+
+date2<- seq(start_date2, end_date2, by = "day")
+
+spdt2<- data.frame(speed2,date2)
+
+
+money<- function(strecken, speedsntime, startD,endD){
+  refuels<- as.data.frame(refuel(strecken,speedsntime))
+  price_per_hour<-sim_prices(startD, endD)
+  
+  
+  counter<-1
+  pru2<- data.frame()
+  
+  
+  for (i in refuels$taken){
+    pru= price_per_hour[price_per_hour$start==
+                          (price_per_hour$start[substr(price_per_hour[,2],6,13)
+                                                ==substr(refuels
+                                                         [counter,1],6, 13)]),]
+    pru2= rbind(pru2,pru)
+    counter= counter+1
+  }
+  correct_prices <- c(pru2$prices)
+  results <- data.frame(refuels$taken, correct_prices, "full_spent_per_day" 
+                        = 50 * correct_prices)
+  results$week <- as.numeric(format(as.POSIXlt(results$refuels.taken), "%U"))
+  
+  weekly_spendings <- aggregate(full_spent_per_day ~ week, data = results, FUN
+                                = sum)
+  colnames(weekly_spendings)<- c("week", "spent_per_week")
+  return(weekly_spendings)
+}
+
+
+
+print(money(ranges2,spdt2,start_date2,end_date2))
+
+```
+
+
+
+
+
+
+
+
